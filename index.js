@@ -1,8 +1,9 @@
 window.NETLIFY_ENV = {};
 
 function getSecret(key, promptText, defaultValue) {
-  let value = localStorage.getItem(key) || NETLIFY_ENV[key] || prompt(promptText, defaultValue);
-  localStorage.setItem(key, value);
+  let value =
+    localStorage.getItem(key) || NETLIFY_ENV[key] || prompt(promptText, defaultValue);
+  if (value) localStorage.setItem(key, value);
   return value;
 }
 
@@ -10,7 +11,11 @@ const appId = getSecret('appId', 'Enter your strava client id');
 const appSecret = getSecret('appSecret', 'Enter your strava client secret');
 const mapKey = getSecret('mapKey', 'Enter your google maps api key');
 
-const activityType = getSecret('activityType', 'Enter activity type (one of Ride, Run, Walk etc or All)', 'All');
+const activityType = getSecret(
+  'activityType',
+  'Enter activity type (one of Ride, Run, Walk etc or All)',
+  'All'
+);
 
 // prettier-ignore
 async function loadMap() {
