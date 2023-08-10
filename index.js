@@ -18,13 +18,27 @@ const activityType = getSecret(
 );
 
 // prettier-ignore
-async function loadMap() {
+async function loadMapLibrary() {
   (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
     key: mapKey,
     v: "weekly",
   });
   await google.maps.importLibrary('maps');
   await google.maps.importLibrary('geometry');
+}
+
+function loadMap(center) {
+  const map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 10,
+    center,
+    mapTypeId: 'hybrid',
+  });
+
+  return map;
+}
+
+function unescapeJsonString(str) {
+  return JSON.parse(`{"value": "${str}"}`).value;
 }
 
 async function callStravaApi(path, { method = 'GET', params }) {
@@ -39,9 +53,9 @@ async function callStravaApi(path, { method = 'GET', params }) {
   ).json();
 }
 
-async function main() {
-  const messageElem = document.getElementById('message');
+let messageElem;
 
+async function main() {
   const authCode = new URLSearchParams(location.search).get('code');
 
   let refreshToken = localStorage.getItem('refreshToken');
@@ -102,12 +116,12 @@ async function main() {
 
   messageElem.innerHTML += ` got ${activities.length} ${activityType}<br />Getting maps for activities...`;
 
-  const allCoords = [];
-
-  await loadMap();
+  await loadMapLibrary();
+  let map;
 
   for (const activity of activities) {
     const id = activity.id;
+    console.log({ id });
     let polyline = localStorage.getItem(`polyline-${id}`);
     if (!polyline) {
       const detailedActivity = await callStravaApi(`activities/${id}`, {
@@ -115,32 +129,27 @@ async function main() {
           access_token: accessToken,
         },
       });
-      polyline = detailedActivity.map.polyline.replaceAll('\\\\', '\\');
+      polyline = detailedActivity.map.polyline;
       localStorage.setItem(`polyline-${id}`, polyline);
     }
 
-    allCoords.push(google.maps.geometry.encoding.decodePath(polyline));
-  }
+    const coords = google.maps.geometry.encoding.decodePath(polyline);
 
-  const map = new google.maps.Map(document.getElementById('map'), {
-    zoom: 10,
-    center: allCoords[0][0],
-    mapTypeId: 'hybrid',
-  });
-
-  for (const activityCoords of allCoords) {
-    const flightPath = new google.maps.Polyline({
-      path: activityCoords,
+    if (!map) {
+      map = loadMap(coords[0]);
+    }
+    new google.maps.Polyline({
+      path: coords,
       geodesic: true,
       strokeColor: '#FF0000',
       strokeOpacity: 0.5,
       strokeWeight: 1,
-    });
-    flightPath.setMap(map);
+    }).setMap(map);
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  messageElem = document.getElementById('message');
   main().catch(e => {
     messageElem.innerHTML += `<br />Something went wrong ☹️`;
     console.error(e);
