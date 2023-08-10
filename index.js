@@ -121,7 +121,6 @@ async function main() {
 
   for (const activity of activities) {
     const id = activity.id;
-    console.log({ id });
     let polyline = localStorage.getItem(`polyline-${id}`);
     if (!polyline) {
       const detailedActivity = await callStravaApi(`activities/${id}`, {
