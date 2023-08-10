@@ -112,7 +112,9 @@ async function main() {
     }
   }
 
-  const activities = allActivities.filter(a => a.type === activityType);
+  const activities = allActivities.filter(
+    a => a.type === activityType || activityType === 'All'
+  );
 
   messageElem.innerHTML += ` got ${activities.length} ${activityType}<br />Getting maps for activities...`;
 
