@@ -130,6 +130,8 @@ async function main({ appId, appSecret, activityType, mapKey, authCode }) {
 
       const coords = google.maps.geometry.encoding.decodePath(polyline);
 
+      if (!coords.length) return;
+
       if (!map) {
         map = loadMap(coords[0]);
       }
