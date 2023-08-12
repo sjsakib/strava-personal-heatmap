@@ -1,4 +1,5 @@
 window.NETLIFY_ENV = {};
+const PAGE_SIZE = 30;
 
 function getSecret(key, promptText, defaultValue) {
   let value =
@@ -97,29 +98,30 @@ async function main() {
 
   let allActivities = [];
   messageElem.innerHTML += ' done<br /> Getting list of activities...';
+  let page = Number(localStorage.getItem('lastPage')) || 1;
   while (true) {
-    const page = Math.round(allActivities.length / 200) + 1;
     const newActivities = await callStravaApi('athlete/activities', {
       params: {
         access_token: accessToken,
         page,
-        per_page: 200,
+        per_page: PAGE_SIZE,
       },
     });
     allActivities = allActivities.concat(newActivities);
-    if (!newActivities.length || newActivities.length < 200) {
+    if (!newActivities.length || newActivities.length < PAGE_SIZE) {
+      if (newActivities.length) {
+        localStorage.setItem('lastPage', page);
+      }
       break;
     }
+    page++;
   }
 
   const activities = allActivities.filter(
     a => a.type === activityType || activityType === 'All'
   );
 
-  messageElem.innerHTML += ` got ${activities.length} ${activityType}<br />Getting maps for activities...`;
-
-  await loadMapLibrary();
-  let map;
+  messageElem.innerHTML += ` got ${activities.length} new activities<br />Getting maps for activities...`;
 
   for (const activity of activities) {
     const id = activity.id;
@@ -133,20 +135,30 @@ async function main() {
       polyline = detailedActivity.map.polyline;
       localStorage.setItem(`polyline-${id}`, polyline);
     }
-
-    const coords = google.maps.geometry.encoding.decodePath(polyline);
-
-    if (!map) {
-      map = loadMap(coords[0]);
-    }
-    new google.maps.Polyline({
-      path: coords,
-      geodesic: true,
-      strokeColor: '#FF0000',
-      strokeOpacity: 0.5,
-      strokeWeight: 1,
-    }).setMap(map);
   }
+
+  await loadMapLibrary();
+  let map;
+
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('polyline-'))
+    .forEach(k => {
+      const polyline = localStorage.getItem(k);
+
+      const coords = google.maps.geometry.encoding.decodePath(polyline);
+
+      if (!map) {
+        map = loadMap(coords[0]);
+      }
+
+      new google.maps.Polyline({
+        path: coords,
+        geodesic: true,
+        strokeColor: '#FF0000',
+        strokeOpacity: 0.5,
+        strokeWeight: 1,
+      }).setMap(map);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
