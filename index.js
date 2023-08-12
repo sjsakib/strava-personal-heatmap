@@ -114,6 +114,7 @@ async function main({ appId, appSecret, activityType, mapKey, authCode }) {
           access_token: accessToken,
         },
       });
+      if (!detailedActivity.map) break;
       polyline = detailedActivity.map.polyline;
       localStorage.setItem(`polyline-${id}`, polyline);
     }
