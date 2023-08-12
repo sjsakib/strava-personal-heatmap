@@ -1,27 +1,9 @@
-window.NETLIFY_ENV = {};
 const PAGE_SIZE = 30;
 
-function getSecret(key, promptText, defaultValue) {
-  let value =
-    localStorage.getItem(key) || NETLIFY_ENV[key] || prompt(promptText, defaultValue);
-  if (value) localStorage.setItem(key, value);
-  return value;
-}
-
-const appId = getSecret('appId', 'Enter your strava client id');
-const appSecret = getSecret('appSecret', 'Enter your strava client secret');
-const mapKey = getSecret('mapKey', 'Enter your google maps api key');
-
-const activityType = getSecret(
-  'activityType',
-  'Enter activity type (one of Ride, Run, Walk etc or All)',
-  'All'
-);
-
 // prettier-ignore
-async function loadMapLibrary() {
+async function loadMapLibrary(key) {
   (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
-    key: mapKey,
+    key,
     v: "weekly",
   });
   await google.maps.importLibrary('maps');
@@ -56,8 +38,8 @@ async function callStravaApi(path, { method = 'GET', params }) {
 
 let messageElem;
 
-async function main() {
-  const authCode = new URLSearchParams(location.search).get('code');
+async function main({ appId, appSecret, activityType, mapKey, authCode }) {
+  messageElem.innerHTML = 'Connecting to strava...';
 
   let refreshToken = localStorage.getItem('refreshToken');
   if (!authCode && !refreshToken) {
@@ -66,7 +48,7 @@ async function main() {
   }
 
   if (!refreshToken) {
-    const refreshToken = (
+    refreshToken = (
       await callStravaApi('oauth/token', {
         method: 'POST',
         params: {
@@ -121,7 +103,7 @@ async function main() {
     a => a.type === activityType || activityType === 'All'
   );
 
-  messageElem.innerHTML += ` got ${activities.length} new activities<br />Getting maps for activities...`;
+  messageElem.innerHTML += ` got ${activities.length} new activities<br />Getting maps for activities... it might take a while`;
 
   for (const activity of activities) {
     const id = activity.id;
@@ -137,7 +119,7 @@ async function main() {
     }
   }
 
-  await loadMapLibrary();
+  await loadMapLibrary(mapKey);
   let map;
 
   Object.keys(localStorage)
@@ -163,8 +145,34 @@ async function main() {
 
 document.addEventListener('DOMContentLoaded', () => {
   messageElem = document.getElementById('message');
-  main().catch(e => {
-    messageElem.innerHTML += `<br />Something went wrong ☹️`;
-    console.error(e);
-  });
+  const form = document.querySelector('form');
+
+  form.elements.appId.value = localStorage.getItem('appId') || '';
+  form.elements.appSecret.value = localStorage.getItem('appSecret') || '';
+  form.elements.mapKey.value = localStorage.getItem('mapKey') || '';
+  form.elements.activityType.value = localStorage.getItem('activityType') || 'All';
+
+  function handleSubmit(e) {
+    e?.preventDefault();
+    const appId = form.elements.appId.value;
+    const appSecret = form.elements.appSecret.value;
+    const mapKey = form.elements.mapKey.value;
+    const activityType = form.elements.activityType.value;
+    localStorage.setItem('appId', appId);
+    localStorage.setItem('appSecret', appSecret);
+    localStorage.setItem('mapKey', mapKey);
+    localStorage.setItem('activityType', activityType);
+    main({ appId, appSecret, mapKey, activityType, authCode }).catch(err => {
+      messageElem.innerHTML += `<br />Something went wrong ☹️`;
+      console.error(err);
+    });
+  }
+
+  form.addEventListener('submit', handleSubmit);
+
+  const authCode = new URLSearchParams(location.search).get('code');
+  console.log({ authCode });
+  if (authCode) {
+    handleSubmit();
+  }
 });
