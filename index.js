@@ -80,7 +80,8 @@ async function main({ appId, appSecret, activityType, mapKey, authCode }) {
 
   let allActivities = [];
   messageElem.innerHTML += ' done<br /> Getting list of activities...';
-  let page = Number(localStorage.getItem('lastPage')) || 1;
+  let page = 1;
+  let oldIndex = -1;
   while (true) {
     const newActivities = await callStravaApi('athlete/activities', {
       params: {
@@ -89,11 +90,12 @@ async function main({ appId, appSecret, activityType, mapKey, authCode }) {
         per_page: PAGE_SIZE,
       },
     });
+    oldIndex =
+      allActivities.length +
+      newActivities.findIndex(a => localStorage.getItem(`polyline-${a.id}`));
     allActivities = allActivities.concat(newActivities);
-    if (!newActivities.length || newActivities.length < PAGE_SIZE) {
-      if (newActivities.length) {
-        localStorage.setItem('lastPage', page);
-      }
+
+    if (!newActivities.length || newActivities.length < PAGE_SIZE || oldIndex >= 0) {
       break;
     }
     page++;
@@ -103,7 +105,7 @@ async function main({ appId, appSecret, activityType, mapKey, authCode }) {
     a => a.type === activityType || activityType === 'All'
   );
 
-  messageElem.innerHTML += ` got ${activities.length} new activities<br />Getting maps for activities... it might take a while`;
+  messageElem.innerHTML += ` got ${oldIndex} new activities<br />Getting maps for activities... it might take a while`;
 
   for (const activity of activities) {
     const id = activity.id;
